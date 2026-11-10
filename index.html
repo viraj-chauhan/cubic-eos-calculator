@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cubic EOS Calculator</title>
+<!-- Thermodynamics computer project
+     Viraj Chauhan (2025CH11046), Prakhar Rawat (2025CH11477)
+     PVT behaviour of real gases using cubic equations of state (vdW, RK, SRK, PR)
+     + enthalpy and entropy (residual properties)
+     + pure component fugacity
+     Reference: Smith, Van Ness, Abbott & Swihart, Introduction to Chemical Engineering Thermodynamics, 8th ed. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4f6f2;
+  --panel: #e9ede6;
+  --ink: #17202a;
+  --graphite: #5a6570;
+  --rule: #d6dbd3;
+  --cobalt: #2443b8;
+  --marker: #ffec8a;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --math: "STIX Two Text", "Cambria Math", Cambria, "Times New Roman", serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+sub, sup { line-height: 0; }
+
+/* ---------- header ---------- */
+.top {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 36px 40px 26px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  border-bottom: 2px solid var(--ink);
+}
+.top h1 {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.top .names {
+  margin: 12px 0 0;
+  font-size: 21px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.top .names span { color: var(--graphite); font-weight: 400; }
+.top svg { width: 318px; height: 132px; flex-shrink: 0; overflow: visible; }
+
+/* ---------- layout ---------- */
+.page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 40px 60px;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+/* ---------- inputs ---------- */
+.inputs {
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 22px 22px 24px;
+}
+.inputs h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 22px 0 8px;
+}
+.inputs h3:first-child { margin-top: 0; }
+[hidden] { display: none !important; }
+label { display: block; font-size: 14px; color: var(--graphite); margin-top: 8px; }
+input, select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  font: 16px var(--sans);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid #c3cac0;
+  border-radius: 4px;
+}
+input:focus-visible, select:focus-visible, button:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 1px;
+}
+.pair { display: grid; grid-template-columns: 1fr 88px; gap: 8px; }
+.half { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+dl.consts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  margin: 12px 0 0;
+  font-size: 15px;
+}
+dl.consts dt { color: var(--graphite); }
+dl.consts dd { margin: 0; text-align: right; }
+dl.consts .gap { grid-column: 1 / -1; height: 6px; }
+#run {
+  margin-top: 24px;
+  width: 100%;
+  padding: 12px;
+  font: 600 17px var(--sans);
+  color: #fff;
+  background: var(--cobalt);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#run:hover { background: #1c379c; }
+#run.done { background: #1d6b45; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #c3cac0; border-radius: 4px; overflow: hidden; background: #fff; }
+.seg button { font: 500 15px var(--sans); padding: 8px 0; border: 0; border-right: 1px solid #c3cac0; background: transparent; color: var(--ink); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: #f1f3ef; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+/* ---------- results ---------- */
+.outputs { min-width: 0; }
+section { margin-bottom: 52px; }
+section:last-child { margin-bottom: 0; }
+h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  letter-spacing: -0.01em;
+}
+h2 .n { color: var(--cobalt); font-weight: 700; }
+.state { color: var(--graphite); margin: -8px 0 20px; font-size: 16px; }
+.state b { color: var(--ink); font-weight: 600; }
+
+.readout {
+  display: grid;
+  grid-template-columns: 1.3fr repeat(4, 1fr);
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
+}
+.readout .ph {
+  grid-row: span 2;
+  padding: 16px 20px 16px 0;
+  border-right: 1px solid var(--rule);
+}
+.readout .ph div { font-size: 38px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+.readout .ph small { color: var(--graphite); font-size: 15px; }
+.readout .ph dl { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 2px 12px; margin: 14px 0 0; font-size: 15px; }
+.readout .ph dt { color: var(--graphite); }
+.readout .ph dd { margin: 0; font-weight: 600; }
+.readout .kv { padding: 12px 16px; border-right: 1px solid var(--rule); }
+.readout .kv:nth-child(5), .readout .kv:nth-child(9) { border-right: 0; }
+.readout .kv:nth-child(-n+5) { border-bottom: 1px solid var(--rule); }
+.readout .k { font-size: 14px; color: var(--graphite); }
+.readout .v { font-size: 22px; font-weight: 600; }
+.readout .u { font-size: 13px; color: var(--graphite); margin-left: 4px; font-weight: 400; }
+
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--graphite);
+  text-align: right;
+  padding: 8px 10px 9px;
+  border-bottom: 2px solid var(--ink);
+  line-height: 1.3;
+  vertical-align: bottom;
+}
+td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; padding-left: 0; }
+td:first-child { font-weight: 500; }
+tr.ideal td { color: var(--graphite); }
+tbody tr[data-eos], tr[data-eos] { cursor: pointer; }
+tr[data-eos]:hover td { background: #eaeee6; }
+tr.selected td, tr.selected:hover td { background: var(--marker); }
+tr.selected td:first-child { padding-left: 8px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 9px; }
+.msg { color: var(--graphite); margin: 12px 0 0; }
+.error { color: #b3261e; font-weight: 600; }
+
+/* ---------- formulas ---------- */
+.formulas h3 { font-size: 18px; font-weight: 600; margin: 34px 0 6px; }
+.formulas .src { color: var(--graphite); margin: -6px 0 0; font-size: 15px; }
+.formulas p { max-width: 72ch; }
+.eq {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 0;
+  font-family: var(--math);
+  font-size: 21px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.eq > span:first-child { flex: 1; text-align: center; }
+.eq .no { font: 15px var(--sans); color: var(--graphite); flex-shrink: 0; }
+.eq i { font-style: italic; }
+.eq .gap { display: inline-block; width: 44px; }
+.fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 4px; }
+.fr > span:first-child { border-bottom: 1px solid var(--ink); padding: 0 4px 2px; }
+.fr > span:last-child { padding: 2px 4px 0; }
+.params { max-width: 760px; margin: 10px auto 0; }
+.params th, .params td { text-align: center; }
+.tcap { text-align: center; color: var(--graphite); font-size: 14px; margin: 8px 0 6px; max-width: none !important; }
+
+@media (max-width: 960px) {
+  .top { flex-direction: column; align-items: flex-start; padding: 28px 20px 20px; }
+  .top h1 { font-size: 34px; }
+  .top svg { width: 220px; height: 80px; }
+  .page { grid-template-columns: minmax(0, 1fr); padding: 24px 20px 48px; gap: 36px; }
+  .readout { grid-template-columns: repeat(2, 1fr); }
+  .readout .ph { grid-column: 1 / -1; grid-row: auto; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .readout .kv { border-bottom: 1px solid var(--rule); }
+}
+@media print {
+  body { background: #fff; font-size: 12px; }
+  .top { padding: 0 0 12px; }
+  .top svg { width: 200px; height: 84px; }
+  .page { display: block; padding: 16px 0 0; }
+  .inputs, #run { display: none; }
+  section { margin-bottom: 26px; break-inside: avoid; }
+  tr.selected td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>Cubic EOS Calculator</h1>
+    <p class="names">Viraj Chauhan <span>2025CH11046</span> &amp; Prakhar Rawat <span>2025CH11477</span></p>
+  </div>
+  <!-- van der Waals isotherms (Tr = 0.85, 1, 1.25) with saturation dome, computed by the program -->
+  <svg viewBox="-18 0 318 132" aria-hidden="true">
+    <path d="M-6 0 V122 H300" fill="none" stroke="#17202a" stroke-width="1"/>
+    <text x="-17" y="10" font-family="STIX Two Text, serif" font-style="italic" font-size="13" fill="#17202a">P</text>
+    <text x="290" y="132" font-family="STIX Two Text, serif" font-style="italic" font-size="13" fill="#17202a">V</text>
+    <path d="M3.3 109.9 L4.9 108.7 L6.5 107.3 L8.1 105.9 L9.7 104.3 L11.4 102.6 L13.1 100.8 L14.8 99.0 L16.6 97.0 L18.4 95.0 L20.2 92.9 L22.1 90.8 L24.0 88.6 L26.0 86.4 L27.9 84.2 L30.0 81.9 L32.0 79.7 L34.1 77.4 L36.3 75.2 L38.5 73.0 L40.7 70.9 L43.0 68.8 L45.3 66.7 L47.7 64.7 L50.1 62.8 L52.6 60.9 L55.1 59.1 L57.7 57.5 L60.3 55.9 L62.9 54.4 L65.7 53.0 L68.4 51.8 L71.2 50.7 L74.1 49.6 L77.0 48.8 L79.9 48.0 L82.8 47.4 L85.6 46.9 L88.1 46.6 L90.1 46.3 L90.9 46.3 L97.9 46.0 L105.2 46.3 L106.1 46.3 L108.3 46.6 L111.3 46.9 L114.8 47.4 L118.5 48.0 L122.4 48.8 L126.5 49.6 L130.7 50.7 L135.1 51.8 L139.6 53.0 L144.3 54.4 L149.2 55.9 L154.2 57.5 L159.4 59.1 L164.8 60.9 L170.4 62.8 L176.1 64.7 L182.1 66.7 L188.3 68.8 L194.7 70.9 L201.4 73.0 L208.3 75.2 L215.5 77.4 L223.1 79.7 L230.9 81.9 L239.1 84.2 L247.7 86.4 L256.7 88.6 L266.2 90.8 L276.1 92.9 L286.5 95.0 L297.6 97.0" fill="none" stroke="#5a6570" stroke-width="1.2" stroke-dasharray="3 3"/>
+    <path d="M20.6 13.6 L22.5 30.3 L24.4 44.6 L26.3 56.9 L28.1 67.3 L30.0 76.1 L31.9 83.6 L33.8 89.9 L35.6 95.1 L37.5 99.4 L39.4 102.9 L41.3 105.8 L43.1 108.0 L45.0 109.7 L46.9 111.0 L48.8 111.8 L50.6 112.3 L52.5 112.5 L54.4 112.5 L56.3 112.2 L58.1 111.7 L60.0 111.1 L61.9 110.3 L63.8 109.4 L65.6 108.4 L67.5 107.4 L69.4 106.2 L71.3 105.1 L73.1 103.8 L75.0 102.6 L76.9 101.4 L78.8 100.1 L80.6 98.8 L82.5 97.6 L84.4 96.3 L86.3 95.1 L88.1 93.9 L90.0 92.7 L91.9 91.5 L93.8 90.4 L95.6 89.3 L97.5 88.2 L99.4 87.2 L101.3 86.2 L103.1 85.2 L105.0 84.3 L106.9 83.4 L108.8 82.5 L110.6 81.7 L112.5 81.0 L114.4 80.2 L116.3 79.5 L118.1 78.9 L120.0 78.2 L121.9 77.7 L123.8 77.1 L125.6 76.6 L127.5 76.1 L129.4 75.7 L131.3 75.3 L133.1 74.9 L135.0 74.5 L136.9 74.2 L138.8 73.9 L140.6 73.7 L142.5 73.5 L144.4 73.3 L146.3 73.1 L148.1 72.9 L150.0 72.8 L151.9 72.7 L153.8 72.6 L155.6 72.6 L157.5 72.6 L159.4 72.6 L161.3 72.6 L163.1 72.6 L165.0 72.7 L166.9 72.7 L168.8 72.8 L170.6 72.9 L172.5 73.0 L174.4 73.2 L176.3 73.3 L178.1 73.5 L180.0 73.7 L181.9 73.8 L183.8 74.0 L185.6 74.2 L187.5 74.5 L189.4 74.7 L191.3 74.9 L193.1 75.2 L195.0 75.5 L196.9 75.7 L198.8 76.0 L200.6 76.3 L202.5 76.6 L204.4 76.9 L206.3 77.2 L208.1 77.5 L210.0 77.8 L211.9 78.1 L213.8 78.4 L215.6 78.7 L217.5 79.1 L219.4 79.4 L221.3 79.7 L223.1 80.1 L225.0 80.4 L226.9 80.8 L228.8 81.1 L230.6 81.4 L232.5 81.8 L234.4 82.1 L236.3 82.5 L238.1 82.8 L240.0 83.2 L241.9 83.5 L243.8 83.9 L245.6 84.2 L247.5 84.6 L249.4 84.9 L251.3 85.3 L253.1 85.6 L255.0 86.0 L256.9 86.3 L258.8 86.7 L260.6 87.0 L262.5 87.4 L264.4 87.7 L266.3 88.1 L268.1 88.4 L270.0 88.7 L271.9 89.1 L273.8 89.4 L275.6 89.7 L277.5 90.1 L279.4 90.4 L281.3 90.7 L283.1 91.0 L285.0 91.4 L286.9 91.7 L288.8 92.0 L290.6 92.3 L292.5 92.6 L294.4 92.9 L296.3 93.2 L298.1 93.5 L300.0 93.8" fill="none" stroke="#9aa59c" stroke-width="1.3"/>
+    <path d="M136.9 5.1 L138.8 6.3 L140.6 7.5 L142.5 8.6 L144.4 9.8 L146.3 11.0 L148.1 12.1 L150.0 13.3 L151.9 14.4 L153.8 15.6 L155.6 16.7 L157.5 17.8 L159.4 18.9 L161.3 20.0 L163.1 21.1 L165.0 22.2 L166.9 23.3 L168.8 24.4 L170.6 25.4 L172.5 26.5 L174.4 27.6 L176.3 28.6 L178.1 29.6 L180.0 30.7 L181.9 31.7 L183.8 32.7 L185.6 33.7 L187.5 34.8 L189.4 35.8 L191.3 36.7 L193.1 37.7 L195.0 38.7 L196.9 39.7 L198.8 40.6 L200.6 41.6 L202.5 42.5 L204.4 43.5 L206.3 44.4 L208.1 45.3 L210.0 46.3 L211.9 47.2 L213.8 48.1 L215.6 49.0 L217.5 49.8 L219.4 50.7 L221.3 51.6 L223.1 52.4 L225.0 53.3 L226.9 54.1 L228.8 55.0 L230.6 55.8 L232.5 56.6 L234.4 57.4 L236.3 58.2 L238.1 59.0 L240.0 59.8 L241.9 60.6 L243.8 61.3 L245.6 62.1 L247.5 62.8 L249.4 63.6 L251.3 64.3 L253.1 65.1 L255.0 65.8 L256.9 66.5 L258.8 67.2 L260.6 67.9 L262.5 68.6 L264.4 69.2 L266.3 69.9 L268.1 70.6 L270.0 71.2 L271.9 71.9 L273.8 72.5 L275.6 73.1 L277.5 73.8 L279.4 74.4 L281.3 75.0 L283.1 75.6 L285.0 76.2 L286.9 76.8 L288.8 77.3 L290.6 77.9 L292.5 78.5 L294.4 79.0 L296.3 79.6 L298.1 80.1 L300.0 80.7" fill="none" stroke="#9aa59c" stroke-width="1.3"/>
+    <path d="M43.1 8.8 L45.0 14.0 L46.9 18.6 L48.8 22.6 L50.6 26.0 L52.5 29.1 L54.4 31.7 L56.3 34.0 L58.1 36.0 L60.0 37.7 L61.9 39.1 L63.8 40.4 L65.6 41.4 L67.5 42.3 L69.4 43.1 L71.3 43.7 L73.1 44.2 L75.0 44.7 L76.9 45.0 L78.8 45.3 L80.6 45.5 L82.5 45.6 L84.4 45.8 L86.3 45.9 L88.1 45.9 L90.0 46.0 L91.9 46.0 L93.8 46.0 L95.6 46.0 L97.5 46.0 L99.4 46.0 L101.3 46.0 L103.1 46.0 L105.0 46.0 L106.9 46.0 L108.8 46.1 L110.6 46.1 L112.5 46.2 L114.4 46.2 L116.3 46.3 L118.1 46.4 L120.0 46.5 L121.9 46.7 L123.8 46.8 L125.6 47.0 L127.5 47.2 L129.4 47.4 L131.3 47.6 L133.1 47.8 L135.0 48.0 L136.9 48.3 L138.8 48.6 L140.6 48.8 L142.5 49.1 L144.4 49.5 L146.3 49.8 L148.1 50.1 L150.0 50.5 L151.9 50.9 L153.8 51.2 L155.6 51.6 L157.5 52.0 L159.4 52.4 L161.3 52.9 L163.1 53.3 L165.0 53.7 L166.9 54.2 L168.8 54.6 L170.6 55.1 L172.5 55.6 L174.4 56.1 L176.3 56.5 L178.1 57.0 L180.0 57.5 L181.9 58.0 L183.8 58.5 L185.6 59.1 L187.5 59.6 L189.4 60.1 L191.3 60.6 L193.1 61.1 L195.0 61.7 L196.9 62.2 L198.8 62.7 L200.6 63.3 L202.5 63.8 L204.4 64.3 L206.3 64.9 L208.1 65.4 L210.0 66.0 L211.9 66.5 L213.8 67.0 L215.6 67.6 L217.5 68.1 L219.4 68.6 L221.3 69.2 L223.1 69.7 L225.0 70.2 L226.9 70.8 L228.8 71.3 L230.6 71.8 L232.5 72.3 L234.4 72.9 L236.3 73.4 L238.1 73.9 L240.0 74.4 L241.9 74.9 L243.8 75.4 L245.6 75.9 L247.5 76.4 L249.4 76.9 L251.3 77.4 L253.1 77.9 L255.0 78.4 L256.9 78.9 L258.8 79.4 L260.6 79.8 L262.5 80.3 L264.4 80.8 L266.3 81.3 L268.1 81.7 L270.0 82.2 L271.9 82.6 L273.8 83.1 L275.6 83.5 L277.5 84.0 L279.4 84.4 L281.3 84.8 L283.1 85.2 L285.0 85.7 L286.9 86.1 L288.8 86.5 L290.6 86.9 L292.5 87.3 L294.4 87.7 L296.3 88.1 L298.1 88.5 L300.0 88.9" fill="none" stroke="#2443b8" stroke-width="2.2"/>
+    <circle cx="97.9" cy="46.0" r="3.5" fill="#17202a"/>
+  </svg>
+</header>
+
+<main class="page">
+
+<aside class="inputs">
+  <h3>Gas</h3>
+  <select id="sp" aria-label="Gas"></select>
+  <dl class="consts">
+    <dt>T<sub>c</sub></dt><dd><span id="Tc"></span> K</dd>
+    <dt>P<sub>c</sub></dt><dd><span id="Pc"></span> bar</dd>
+    <dt>&omega;</dt><dd id="w"></dd>
+    <dt>M</dt><dd><span id="M"></span> g/mol</dd>
+    <div class="gap"></div>
+    <dt>C<sub>P</sub>: A</dt><dd id="cA"></dd>
+    <dt>10<sup>3</sup>B</dt><dd id="cB"></dd>
+    <dt>10<sup>6</sup>C</dt><dd id="cC"></dd>
+    <dt>10<sup>&minus;5</sup>D</dt><dd id="cD"></dd>
+  </dl>
+
+  <h3>Conditions</h3>
+  <div class="pair">
+    <label>Temperature<input id="T" type="number" step="any" value="300"></label>
+    <label>Unit<select id="Tu"><option value="K">K</option><option value="C">&deg;C</option></select></label>
+  </div>
+  <div class="pair">
+    <label>Pressure<input id="P" type="number" step="any" value="50"></label>
+    <label>Unit<select id="Pu"><option>bar</option><option>kPa</option><option>MPa</option><option>atm</option></select></label>
+  </div>
+
+  <h3>Equation of state</h3>
+  <div class="seg" id="eosBtns" role="group" aria-label="Equation of state">
+    <button type="button" data-k="vdW" aria-pressed="false" title="van der Waals">vdW</button>
+    <button type="button" data-k="RK" aria-pressed="false" title="Redlich-Kwong">RK</button>
+    <button type="button" data-k="SRK" aria-pressed="false" title="Soave-Redlich-Kwong">SRK</button>
+    <button type="button" data-k="PR" aria-pressed="true" title="Peng-Robinson">PR</button>
+  </div>
+  <label hidden>EOS
+    <select id="eos">
+      <option value="vdW">van der Waals</option>
+      <option value="RK">Redlich-Kwong</option>
+      <option value="SRK">Soave-Redlich-Kwong</option>
+      <option value="PR" selected>Peng-Robinson</option>
+    </select>
+  </label>
+  <label>Root
+    <select id="mode">
+      <option value="auto">Stable root (lower G)</option>
+      <option value="V">Vapour root</option>
+      <option value="L">Liquid root</option>
+    </select>
+  </label>
+
+  <h3>Reference state</h3>
+  <div class="half">
+    <label>T<sub>0</sub> (K)<input id="T0" type="number" step="any" value="298.15"></label>
+    <label>P<sub>0</sub> (bar)<input id="P0" type="number" step="any" value="1"></label>
+  </div>
+
+  <button id="run">Calculate</button>
+</aside>
+
+<div class="outputs">
+  <section>
+    <h2>Result</h2>
+    <div id="summary"></div>
+  </section>
+
+  <section>
+    <h2><span class="n">1</span>PVT behaviour</h2>
+    <div class="scroll"><table id="tPVT"></table></div>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>Fugacity</h2>
+    <div class="scroll"><table id="tF"></table></div>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>Enthalpy and entropy</h2>
+    <div class="scroll"><table id="tHS"></table></div>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>Saturation properties</h2>
+    <div class="scroll"><table id="tSat"></table></div>
+    <p class="msg" id="satNote"></p>
+  </section>
+
+  <section class="formulas">
+    <h2><span class="n">5</span>Formulas used</h2>
+    <p class="src">Equation numbers are from Smith, Van Ness, Abbott &amp; Swihart, <i>Introduction to Chemical Engineering Thermodynamics</i>, 8th ed.</p>
+
+    <h3>Generic cubic equation of state</h3>
+    <div class="eq"><span><i>P</i> = <span class="fr"><span><i>RT</i></span><span><i>V</i> &minus; <i>b</i></span></span> &minus; <span class="fr"><span><i>a</i>(<i>T</i>)</span><span>(<i>V</i> + &epsilon;<i>b</i>)(<i>V</i> + &sigma;<i>b</i>)</span></span></span><span class="no">(3.41)</span></div>
+    <div class="eq"><span><i>b</i> = &Omega;<span class="fr"><span><i>RT<sub>c</sub></i></span><span><i>P<sub>c</sub></i></span></span><span class="gap"></span><i>a</i>(<i>T</i>) = &Psi;<span class="fr"><span>&alpha;(<i>T<sub>r</sub></i>; &omega;) <i>R</i><sup>2</sup><i>T<sub>c</sub></i><sup>2</sup></span><span><i>P<sub>c</sub></i></span></span></span><span class="no">(3.44, 3.45)</span></div>
+    <div class="scroll"><table class="params">
+      <tr><th>EOS</th><th>&alpha;(T<sub>r</sub>)</th><th>&sigma;</th><th>&epsilon;</th><th>&Omega;</th><th>&Psi;</th><th>Z<sub>c</sub></th></tr>
+      <tr><td>vdW (1873)</td><td>1</td><td>0</td><td>0</td><td>1/8</td><td>27/64</td><td>3/8</td></tr>
+      <tr><td>RK (1949)</td><td>T<sub>r</sub><sup>&minus;1/2</sup></td><td>1</td><td>0</td><td>0.08664</td><td>0.42748</td><td>1/3</td></tr>
+      <tr><td>SRK (1972)</td><td>&alpha;<sub>SRK</sub></td><td>1</td><td>0</td><td>0.08664</td><td>0.42748</td><td>1/3</td></tr>
+      <tr><td>PR (1976)</td><td>&alpha;<sub>PR</sub></td><td>1 + &radic;2</td><td>1 &minus; &radic;2</td><td>0.07780</td><td>0.45724</td><td>0.30740</td></tr>
+    </table></div>
+    <p class="tcap">Table 3.1: Parameter assignments for equations of state</p>
+    <div class="eq"><span>&alpha;<sub>SRK</sub> = [1 + (0.480 + 1.574&omega; &minus; 0.176&omega;<sup>2</sup>)(1 &minus; <i>T<sub>r</sub></i><sup>1/2</sup>)]<sup>2</sup></span><span class="no">(Table 3.1)</span></div>
+    <div class="eq"><span>&alpha;<sub>PR</sub> = [1 + (0.37464 + 1.54226&omega; &minus; 0.26992&omega;<sup>2</sup>)(1 &minus; <i>T<sub>r</sub></i><sup>1/2</sup>)]<sup>2</sup></span><span class="no">(Table 3.1)</span></div>
+
+    <h3>Compressibility factor</h3>
+    <div class="eq"><span>&beta; = <span class="fr"><span><i>bP</i></span><span><i>RT</i></span></span><span class="gap"></span><i>q</i> = <span class="fr"><span><i>a</i>(<i>T</i>)</span><span><i>bRT</i></span></span><span class="gap"></span><i>Z</i> = <span class="fr"><span><i>PV</i></span><span><i>RT</i></span></span></span><span class="no">(3.46, 3.47)</span></div>
+    <div class="eq"><span><i>Z</i> = 1 + &beta; &minus; <i>q</i>&beta; <span class="fr"><span><i>Z</i> &minus; &beta;</span><span>(<i>Z</i> + &epsilon;&beta;)(<i>Z</i> + &sigma;&beta;)</span></span><span class="gap"></span>(vapour root)</span><span class="no">(3.48)</span></div>
+    <div class="eq"><span><i>Z</i> = &beta; + (<i>Z</i> + &epsilon;&beta;)(<i>Z</i> + &sigma;&beta;) <span style="font-size:24px">(</span><span class="fr"><span>1 + &beta; &minus; <i>Z</i></span><span><i>q</i>&beta;</span></span><span style="font-size:24px">)</span><span class="gap"></span>(liquid root)</span><span class="no">(3.49)</span></div>
+
+    <h3>Fugacity</h3>
+    <div class="eq"><span>&phi; = <span class="fr"><span><i>f</i></span><span><i>P</i></span></span><span class="gap"></span>ln &phi; = <span class="fr"><span><i>G</i><sup>R</sup></span><span><i>RT</i></span></span></span><span class="no">(10.34, 10.33)</span></div>
+    <div class="eq"><span><i>I</i> = <span class="fr"><span>1</span><span>&sigma; &minus; &epsilon;</span></span> ln <span class="fr"><span><i>Z</i> + &sigma;&beta;</span><span><i>Z</i> + &epsilon;&beta;</span></span><span class="gap"></span>(vdW: <i>I</i> = &beta;/<i>Z</i>)</span><span class="no">(13.72)</span></div>
+    <div class="eq"><span><span class="fr"><span><i>G</i><sup>R</sup></span><span><i>RT</i></span></span> = <i>Z</i> &minus; 1 &minus; ln(<i>Z</i> &minus; &beta;) &minus; <i>qI</i></span><span class="no">(13.74)</span></div>
+
+    <h3>Residual enthalpy and entropy</h3>
+    <div class="eq"><span><span class="fr"><span><i>H</i><sup>R</sup></span><span><i>RT</i></span></span> = <i>Z</i> &minus; 1 + <span style="font-size:24px">[</span><span class="fr"><span>d ln &alpha;(<i>T<sub>r</sub></i>)</span><span>d ln <i>T<sub>r</sub></i></span></span> &minus; 1<span style="font-size:24px">]</span> <i>qI</i></span><span class="no">(13.75)</span></div>
+    <div class="eq"><span><span class="fr"><span><i>S</i><sup>R</sup></span><span><i>R</i></span></span> = ln(<i>Z</i> &minus; &beta;) + <span class="fr"><span>d ln &alpha;(<i>T<sub>r</sub></i>)</span><span>d ln <i>T<sub>r</sub></i></span></span> <i>qI</i></span><span class="no">(13.76)</span></div>
+
+    <h3>Enthalpy and entropy</h3>
+    <div class="eq"><span><i>H</i> = <i>H</i><sup>ig</sup> + <i>H</i><sup>R</sup><span class="gap"></span><i>S</i> = <i>S</i><sup>ig</sup> + <i>S</i><sup>R</sup></span><span class="no">(6.41)</span></div>
+    <div class="eq"><span><i>H</i><sup>ig</sup> = <i>H</i><sub>0</sub><sup>ig</sup> + &int;<sub><i>T</i><sub>0</sub></sub><sup><i>T</i></sup> <i>C<sub>P</sub></i><sup>ig</sup> d<i>T</i><span class="gap"></span><i>S</i><sup>ig</sup> = <i>S</i><sub>0</sub><sup>ig</sup> + &int;<sub><i>T</i><sub>0</sub></sub><sup><i>T</i></sup> <i>C<sub>P</sub></i><sup>ig</sup> <span class="fr"><span>d<i>T</i></span><span><i>T</i></span></span> &minus; <i>R</i> ln <span class="fr"><span><i>P</i></span><span><i>P</i><sub>0</sub></span></span></span><span class="no">(Sec. 6.2)</span></div>
+    <div class="eq"><span><span class="fr"><span><i>C<sub>P</sub></i><sup>ig</sup></span><span><i>R</i></span></span> = <i>A</i> + <i>BT</i> + <i>CT</i><sup>2</sup> + <i>DT</i><sup>&minus;2</sup></span><span class="no">(4.4)</span></div>
+    <p>Reference state: ideal gas at T<sub>0</sub>, P<sub>0</sub> with H<sub>0</sub><sup>ig</sup> = 0 and S<sub>0</sub><sup>ig</sup> = 0.</p>
+
+    <h3>Vapour/liquid equilibrium for a pure species</h3>
+    <div class="eq"><span><i>f</i><sup>v</sup> = <i>f</i><sup>l</sup> = <i>f</i><sup>sat</sup><span class="gap"></span>&phi;<sup>v</sup> = &phi;<sup>l</sup> = &phi;<sup>sat</sup></span><span class="no">(10.39, 10.41)</span></div>
+
+    <h3>Gas constant</h3>
+    <p>R = 83.14 cm<sup>3</sup> bar/(mol K) = 8.314 J/(mol K)</p>
+  </section>
+</div>
+
+</main>
+
+<script>
+// ---------------- constants ----------------
+const R = 83.14;     // cm3 bar / mol K
+const RJ = 8.314;    // J / mol K
+
+// gas data: name, formula, Tc (K), Pc (bar), omega, M (g/mol), Cp constants [A, 10^3 B, 10^6 C, 10^-5 D]
+// critical constants and Cp data (Cp from Table C.1, Smith Van Ness Abbott)
+const DB = [
+  ["Methane", "CH4", 190.56, 45.99, 0.011, 16.043, [1.702, 9.081, -2.164, 0]],
+  ["Ethane", "C2H6", 305.32, 48.72, 0.099, 30.07, [1.131, 19.225, -5.561, 0]],
+  ["Propane", "C3H8", 369.83, 42.48, 0.152, 44.097, [1.213, 28.785, -8.824, 0]],
+  ["n-Butane", "C4H10", 425.12, 37.96, 0.200, 58.123, [1.935, 36.915, -11.402, 0]],
+  ["n-Pentane", "C5H12", 469.7, 33.70, 0.252, 72.150, [2.464, 45.351, -14.111, 0]],
+  ["n-Hexane", "C6H14", 507.6, 30.25, 0.301, 86.177, [3.025, 53.722, -16.791, 0]],
+  ["Ethylene", "C2H4", 282.3, 50.40, 0.087, 28.054, [1.424, 14.394, -4.392, 0]],
+  ["Propylene", "C3H6", 365.6, 46.65, 0.140, 42.081, [1.637, 22.706, -6.915, 0]],
+  ["Benzene", "C6H6", 562.2, 48.98, 0.210, 78.114, [-0.206, 39.064, -13.301, 0]],
+  ["Methanol", "CH3OH", 512.6, 80.97, 0.564, 32.042, [2.211, 12.216, -3.450, 0]],
+  ["Ethanol", "C2H5OH", 513.9, 61.48, 0.645, 46.069, [3.518, 20.001, -6.002, 0]],
+  ["Nitrogen", "N2", 126.2, 33.98, 0.037, 28.014, [3.280, 0.593, 0, 0.040]],
+  ["Oxygen", "O2", 154.58, 50.43, 0.022, 31.999, [3.639, 0.506, 0, -0.227]],
+  ["Hydrogen", "H2", 33.19, 13.13, -0.216, 2.016, [3.249, 0.422, 0, 0.083]],
+  ["Argon", "Ar", 150.9, 48.98, 0.000, 39.948, [2.5, 0, 0, 0]],
+  ["Carbon monoxide", "CO", 132.9, 34.99, 0.048, 28.010, [3.376, 0.557, 0, -0.031]],
+  ["Carbon dioxide", "CO2", 304.13, 73.77, 0.225, 44.01, [5.457, 1.045, 0, -1.157]],
+  ["Sulfur dioxide", "SO2", 430.8, 78.84, 0.245, 64.065, [5.699, 0.801, 0, -1.015]],
+  ["Ammonia", "NH3", 405.4, 113.5, 0.257, 17.031, [3.578, 3.020, 0, -0.186]],
+  ["Water", "H2O", 647.1, 220.64, 0.344, 18.015, [3.470, 1.450, 0, 0.121]]
+];
+const gases = DB.map(r => ({name: r[0], formula: r[1], Tc: r[2], Pc: r[3], w: r[4], M: r[5], cp: r[6]}));
+
+// parameters of the generic cubic EOS (Table 3.1)
+// P = RT/(V-b) - a(T)/((V+eps*b)(V+sig*b))
+const EOS = {
+  vdW: {name: "van der Waals", sig: 0, eps: 0, Om: 1/8, Psi: 27/64, Zc: 3/8},
+  RK:  {name: "Redlich-Kwong", sig: 1, eps: 0, Om: 0.08664, Psi: 0.42748, Zc: 1/3},
+  SRK: {name: "Soave-Redlich-Kwong", sig: 1, eps: 0, Om: 0.08664, Psi: 0.42748, Zc: 1/3},
+  PR:  {name: "Peng-Robinson", sig: 1 + Math.sqrt(2), eps: 1 - Math.sqrt(2), Om: 0.07780, Psi: 0.45724, Zc: 0.30740}
+};
+const eosList = ["vdW", "RK", "SRK", "PR"];
+
+// m(omega) for SRK and PR
+function mValue(k, w) {
+  if (k == "SRK") return 0.480 + 1.574*w - 0.176*w*w;
+  return 0.37464 + 1.54226*w - 0.26992*w*w;
+}
+
+// alpha(Tr)
+function alpha(k, Tr, w) {
+  if (k == "vdW") return 1;
+  if (k == "RK") return 1/Math.sqrt(Tr);
+  let m = mValue(k, w);
+  return Math.pow(1 + m*(1 - Math.sqrt(Tr)), 2);
+}
+
+// d(ln alpha)/d(ln Tr), needed for HR and SR
+function dlnAlpha(k, Tr, w) {
+  if (k == "vdW") return 0;
+  if (k == "RK") return -0.5;
+  let m = mValue(k, w);
+  return -m*Math.sqrt(Tr) / (1 + m*(1 - Math.sqrt(Tr)));
+}
+
+// a, b and q at temperature T
+function getParams(k, gas, T) {
+  let E = EOS[k];
+  let Tr = T/gas.Tc;
+  let a = E.Psi * alpha(k, Tr, gas.w) * R*R*gas.Tc*gas.Tc / gas.Pc;
+  let b = E.Om * R*gas.Tc / gas.Pc;
+  return {E: E, Tr: Tr, a: a, b: b, q: a/(b*R*T), dlna: dlnAlpha(k, Tr, gas.w)};
+}
+
+// coefficients of Z^3 + c2 Z^2 + c1 Z + c0 = 0
+function cubicCoeffs(E, beta, q) {
+  let s = E.sig, e = E.eps;
+  let c2 = (s + e - 1)*beta - 1;
+  let c1 = s*e*beta*beta - (s + e)*beta*(beta + 1) + q*beta;
+  let c0 = -(s*e*beta*beta*(beta + 1) + q*beta*beta);
+  return [c2, c1, c0];
+}
+
+// Newton-Raphson for the cubic
+function newton(c, z) {
+  for (let i = 0; i < 200; i++) {
+    let f = z*z*z + c[0]*z*z + c[1]*z + c[2];
+    let df = 3*z*z + 2*c[0]*z + c[1];
+    if (df == 0) break;
+    let dz = f/df;
+    z = z - dz;
+    if (Math.abs(dz) < 1e-14*Math.max(1, Math.abs(z))) break;
+  }
+  return z;
+}
+
+// find all real roots
+// start Newton above the largest root so it converges to the largest root,
+// then divide it out and solve the remaining quadratic
+function solveCubic(c) {
+  let z0 = 1 + Math.max(Math.abs(c[0]), Math.abs(c[1]), Math.abs(c[2]));
+  let z1 = newton(c, z0);
+  let p = c[0] + z1;
+  let s = c[1] + z1*p;
+  let disc = p*p - 4*s;
+  let roots = [z1];
+  if (disc >= 0) {
+    roots.push(newton(c, (-p - Math.sqrt(disc))/2));
+    roots.push(newton(c, (-p + Math.sqrt(disc))/2));
+  }
+  roots.sort((x, y) => x - y);
+  return roots;
+}
+
+// integral I used in lnphi, HR, SR
+function calcI(E, Z, beta) {
+  if (E.sig == E.eps) return beta/(Z + E.eps*beta);   // vdW case
+  return Math.log((Z + E.sig*beta)/(Z + E.eps*beta)) / (E.sig - E.eps);
+}
+
+function lnPhi(E, Z, beta, q) {
+  return Z - 1 - Math.log(Z - beta) - q*calcI(E, Z, beta);
+}
+
+// solve EOS at given T, P
+function solveEOS(k, gas, T, P, mode) {
+  let pr = getParams(k, gas, T);
+  let beta = pr.b*P/(R*T);
+  let all = solveCubic(cubicCoeffs(pr.E, beta, pr.q));
+  let roots = all.filter(z => z > beta);    // V must be greater than b
+  if (roots.length == 0) return null;
+
+  let Z = roots[roots.length - 1];
+  let branch = "single", stable = "single";
+  if (roots.length >= 2) {
+    // 3 roots: smallest = liquid, largest = vapour. stable one has lower G (lower ln phi)
+    let zl = roots[0], zv = roots[roots.length - 1];
+    stable = lnPhi(pr.E, zl, beta, pr.q) < lnPhi(pr.E, zv, beta, pr.q) ? "L" : "V";
+    branch = (mode == "auto") ? stable : mode;
+    Z = (branch == "L") ? zl : zv;
+  }
+
+  let I = calcI(pr.E, Z, beta);
+  let lnphi = Z - 1 - Math.log(Z - beta) - pr.q*I;
+  return {
+    pr: pr, beta: beta, roots: roots, Z: Z, branch: branch, stable: stable,
+    V: Z*R*T/P,
+    lnphi: lnphi,
+    phi: Math.exp(lnphi),
+    HRRT: Z - 1 + (pr.dlna - 1)*pr.q*I,          // HR/RT
+    SRR: Math.log(Z - beta) + pr.dlna*pr.q*I     // SR/R
+  };
+}
+
+// saturation pressure: find P where ln phi(L) = ln phi(V)
+// Newton in ln P, using d(ln phiL - ln phiV)/d ln P = ZL - ZV
+// lo and hi keep a bracket so we can bisect if Newton goes outside
+function satPressure(k, gas, T) {
+  if (T >= gas.Tc) return null;
+  let pr = getParams(k, gas, T);
+  let E = pr.E;
+  let Vc = E.Zc*R*gas.Tc/gas.Pc;
+  let lnP = Math.log(gas.Pc) + 5.373*(1 + gas.w)*(1 - gas.Tc/T);   // starting guess
+  let lo = -Infinity, hi = Math.log(1.5*gas.Pc);
+
+  for (let it = 1; it <= 300; it++) {
+    let P = Math.exp(lnP);
+    let beta = pr.b*P/(R*T);
+    let r = solveCubic(cubicCoeffs(E, beta, pr.q)).filter(z => z > beta);
+
+    if (r.length < 2) {
+      // only one root -> check if it is liquid like or vapour like
+      if (r.length > 0 && r[0]*R*T/P < Vc) hi = Math.min(hi, lnP);
+      else lo = Math.max(lo, lnP);
+      lnP = isFinite(lo) ? (lo + hi)/2 : lnP - 1;
+      continue;
+    }
+
+    let zl = r[0], zv = r[r.length - 1];
+    let g = lnPhi(E, zl, beta, pr.q) - lnPhi(E, zv, beta, pr.q);
+    if (g > 0) lo = Math.max(lo, lnP); else hi = Math.min(hi, lnP);
+
+    if (Math.abs(g) < 1e-12 && zv - zl > 1e-7) {
+      let IL = calcI(E, zl, beta), IV = calcI(E, zv, beta);
+      let HRL = RJ*T*(zl - 1 + (pr.dlna - 1)*pr.q*IL);
+      let HRV = RJ*T*(zv - 1 + (pr.dlna - 1)*pr.q*IV);
+      return {P: P, zl: zl, zv: zv, VL: zl*R*T/P, VV: zv*R*T/P,
+              lnphi: lnPhi(E, zv, beta, pr.q), dHvap: HRV - HRL, dSvap: (HRV - HRL)/T};
+    }
+
+    let step = g/(zv - zl);
+    step = Math.max(-1, Math.min(1, step));
+    let next = lnP + step;
+    if (!(next > lo && next < hi)) next = isFinite(lo) ? (lo + hi)/2 : lnP - 1;
+    lnP = next;
+  }
+  return null;
+}
+
+// ideal gas H and S from reference state (T0, P0)
+function idealGas(gas, T, P, T0, P0) {
+  let A = gas.cp[0], B = gas.cp[1]*1e-3, C = gas.cp[2]*1e-6, D = gas.cp[3]*1e5;
+  let H = A*(T - T0) + B/2*(T*T - T0*T0) + C/3*(T*T*T - T0*T0*T0) - D*(1/T - 1/T0);
+  let S = A*Math.log(T/T0) + B*(T - T0) + C/2*(T*T - T0*T0) - D/2*(1/(T*T) - 1/(T0*T0));
+  return {H: RJ*H, S: RJ*(S - Math.log(P/P0))};
+}
+
+function getPhase(k, gas, T, P, s, ps) {
+  if (s.roots.length >= 2) {
+    let ph = (s.branch == "L") ? "Liquid" : "Vapour";
+    if (s.branch != s.stable) ph += " (metastable)";
+    return ph;
+  }
+  if (T >= gas.Tc) return (P >= gas.Pc) ? "Supercritical" : "Gas";
+  if (ps) return (P > ps.P) ? "Liquid" : "Vapour";
+  return (s.V < EOS[k].Zc*R*gas.Tc/gas.Pc) ? "Liquid" : "Vapour";
+}
+
+// all properties for one EOS
+function calcAll(k, gas, T, P, mode, ref) {
+  let s = solveEOS(k, gas, T, P, mode);
+  if (!s) return null;
+  let ig = idealGas(gas, T, P, ref.T0, ref.P0);
+  s.ps = satPressure(k, gas, T);
+  s.phase = getPhase(k, gas, T, P, s, s.ps);
+  s.HR = s.HRRT*RJ*T;
+  s.SR = s.SRR*RJ;
+  s.Hig = ig.H;
+  s.Sig = ig.S;
+  s.H = ig.H + s.HR;
+  s.S = ig.S + s.SR;
+  s.f = s.phi*P;
+  s.rho = gas.M/s.V*1000;   // kg/m3
+  return s;
+}
+
+// ---------------- page ----------------
+const $ = id => document.getElementById(id);
+const toBar = {bar: 1, kPa: 0.01, MPa: 10, atm: 1.01325};
+const colors = {vdW: "#7a4fb5", RK: "#1d8bb0", SRK: "#2f8f5b", PR: "#c4462b", ideal: "#a7b0a9"};   // dot colours in tables
+let data = null;
+
+// number formatting
+// use a proper minus sign in the tables
+function minus(s) { return s.replace("-", "\u2212"); }
+function num(v, sig) {
+  if (v == null || !isFinite(v)) return "&ndash;";
+  if (v != 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e7)) {
+    let parts = v.toExponential(sig - 1).split("e");   // e.g. 6.283 x 10^-4
+    return minus(parts[0]) + " &times; 10<sup>" + minus(String(+parts[1])) + "</sup>";
+  }
+  return minus(String(Number(v.toPrecision(sig))));
+}
+function fix(v, d) {
+  if (v == null || !isFinite(v)) return "&ndash;";
+  return minus(v.toFixed(d));
+}
+// fixed decimals, but keep 4 significant figures for very small values (e.g. Psat of water)
+// phi: 5 decimals, or 4 significant figures if it is very small
+function phiFmt(v) { return (v < 0.01) ? num(v, 4) : fix(v, 5); }
+function dec(v, d) {
+  if (v == null || !isFinite(v)) return "&ndash;";
+  if (v != 0 && Math.abs(v) < Math.pow(10, -d + 1)) return num(v, 4);
+  return fix(v, d);
+}
+function pUnit(bar) { return bar == null ? null : bar/toBar[data.pu]; }
+
+// fill gas list
+gases.forEach((g, i) => {
+  let o = document.createElement("option");
+  o.value = i;
+  o.textContent = g.name + " (" + g.formula + ")";
+  $("sp").appendChild(o);
+});
+
+function fillGas(i) {
+  let g = gases[i];
+  $("Tc").textContent = g.Tc; $("Pc").textContent = g.Pc; $("w").textContent = String(g.w).replace("-", "\u2212"); $("M").textContent = g.M;
+  ["cA", "cB", "cC", "cD"].forEach((id, j) => { $(id).textContent = String(g.cp[j]).replace("-", "\u2212"); });
+}
+$("sp").value = 16;   // CO2
+fillGas(16);
+
+function calculate() {
+  let sel = $("sp").value;
+  let gas = gases[sel];
+  let pu = $("Pu").value, tu = $("Tu").value;
+  let T = +$("T").value + (tu == "C" ? 273.15 : 0);
+  let P = +$("P").value * toBar[pu];
+  let ref = {T0: +$("T0").value, P0: +$("P0").value};
+  let mode = $("mode").value;
+
+  if (!(T > 0 && P > 0 && ref.T0 > 0 && ref.P0 > 0)) {
+    $("summary").innerHTML = '<p class="error">Please enter positive values for T, P, T0 and P0.</p>';
+    return;
+  }
+
+  let res = {};
+  for (let k of eosList) res[k] = calcAll(k, gas, T, P, mode, ref);
+  data = {gas: gas, T: T, P: P, pu: pu, ref: ref, mode: mode, res: res, ig: idealGas(gas, T, P, ref.T0, ref.P0)};
+  showResults();
+}
+
+function dot(k) { return '<span class="dot" style="background:' + colors[k] + '"></span>'; }
+
+function rows(fn) {
+  let sel = $("eos").value, h = "";
+  for (let k of eosList) {
+    let s = data.res[k];
+    h += '<tr data-eos="' + k + '"' + (k == sel ? ' class="selected"' : '') + '><td>' + dot(k) + EOS[k].name + '</td>';
+    h += s ? fn(s) : '<td colspan="9">no physical root</td>';
+    h += '</tr>';
+  }
+  return h;
+}
+
+function kv(label, value, unit) {
+  return '<div class="kv"><div class="k">' + label + '</div><div class="v">' + value + '<span class="u">' + unit + '</span></div></div>';
+}
+
+function showResults() {
+  let gas = data.gas, T = data.T, P = data.P, pu = data.pu, ig = data.ig;
+  let k = $("eos").value, s = data.res[k];
+  let Vig = R*T/P;
+
+  // summary
+  let info = "<b>" + gas.name + "</b> at " + num(T, 6) + " K and " + num(P, 6) + " bar, " + EOS[k].name;
+  if (!s) {
+    $("summary").innerHTML = '<p class="state">' + info + '</p><p class="error">No physical root for ' + EOS[k].name + '.</p>';
+  } else {
+    $("summary").innerHTML = '<p class="state">' + info + '</p><div class="readout">' +
+      '<div class="ph"><div>' + s.phase + '</div><small>' + (s.roots.length >= 2 ? "3 real roots" : "1 real root") + '</small>' +
+      '<dl><dt>T<sub>r</sub></dt><dd>' + fix(T/gas.Tc, 4) + '</dd><dt>P<sub>r</sub></dt><dd>' + fix(P/gas.Pc, 4) + '</dd></dl></div>' +
+      kv("Z", fix(s.Z, 5), "") +
+      kv("V", dec(s.V, 2), "cm<sup>3</sup>/mol") +
+      kv("&rho;", dec(s.rho, 2), "kg/m<sup>3</sup>") +
+      kv("&phi;", phiFmt(s.phi), "") +
+      kv("f", dec(pUnit(s.f), 4), pu) +
+      kv("H", fix(s.H, 1), "J/mol") +
+      kv("S", fix(s.S, 3), "J/mol K") +
+      kv("P<sup>sat</sup>", s.ps ? dec(pUnit(s.ps.P), 4) : "&ndash;", s.ps ? pu : "T &gt; T<sub>c</sub>") + '</div>';
+  }
+
+  // 1. PVT
+  $("tPVT").innerHTML =
+    "<tr><th>EOS</th><th>Roots (Z)</th><th>Phase</th><th>Z</th><th>V (cm<sup>3</sup>/mol)</th><th>&rho; (kg/m<sup>3</sup>)</th><th>V/V<sub>ideal</sub></th></tr>" +
+    "<tr class='ideal'><td>" + dot("ideal") + "Ideal gas</td><td>1</td><td>&ndash;</td><td>1.00000</td><td>" + dec(Vig, 2) + "</td><td>" + dec(gas.M/Vig*1000, 2) + "</td><td>1.0000</td></tr>" +
+    rows(s => "<td>" + s.roots.map(z => fix(z, 5)).join(", ") + "</td><td>" + s.phase + "</td><td>" + fix(s.Z, 5) + "</td><td>" + dec(s.V, 2) +
+      "</td><td>" + dec(s.rho, 2) + "</td><td>" + fix(s.V/Vig, 4) + "</td>");
+
+  // 2. fugacity
+  $("tF").innerHTML =
+    "<tr><th>EOS</th><th>ln &phi;</th><th>&phi;</th><th>f (" + pu + ")</th><th>f of other root (" + pu + ")</th><th>P<sup>sat</sup> (" + pu + ")</th><th>f<sup>sat</sup> (" + pu + ")</th></tr>" +
+    "<tr class='ideal'><td>" + dot("ideal") + "Ideal gas</td><td>0.00000</td><td>1.00000</td><td>" + dec(pUnit(P), 4) + "</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>" +
+    rows(s => {
+      let otherF = "&ndash;";
+      if (s.roots.length >= 2) {
+        let z = (s.branch == "L") ? s.roots[s.roots.length - 1] : s.roots[0];
+        otherF = dec(pUnit(P*Math.exp(lnPhi(s.pr.E, z, s.beta, s.pr.q))), 4) + (s.branch == "L" ? " (V)" : " (L)");
+      }
+      let fsat = s.ps ? dec(pUnit(s.ps.P*Math.exp(s.ps.lnphi)), 4) : "&ndash;";
+      return "<td>" + fix(s.lnphi, 5) + "</td><td>" + phiFmt(s.phi) + "</td><td>" + dec(pUnit(s.f), 4) + "</td><td>" + otherF +
+        "</td><td>" + dec(pUnit(s.ps ? s.ps.P : null), 4) + "</td><td>" + fsat + "</td>";
+    });
+
+  // 3. H and S
+  $("tHS").innerHTML =
+    "<tr><th>EOS</th><th>H<sup>R</sup>/RT</th><th>S<sup>R</sup>/R</th><th>H<sup>R</sup> (J/mol)</th><th>S<sup>R</sup> (J/mol K)</th><th>H<sup>ig</sup> (J/mol)</th><th>S<sup>ig</sup> (J/mol K)</th><th>H (J/mol)</th><th>S (J/mol K)</th></tr>" +
+    "<tr class='ideal'><td>" + dot("ideal") + "Ideal gas</td><td>0.00000</td><td>0.00000</td><td>0.0</td><td>0.000</td><td>" + fix(ig.H, 1) + "</td><td>" + fix(ig.S, 3) + "</td><td>" + fix(ig.H, 1) + "</td><td>" + fix(ig.S, 3) + "</td></tr>" +
+    rows(s => "<td>" + fix(s.HRRT, 5) + "</td><td>" + fix(s.SRR, 5) + "</td><td>" + fix(s.HR, 1) + "</td><td>" + fix(s.SR, 3) + "</td><td>" +
+      fix(s.Hig, 1) + "</td><td>" + fix(s.Sig, 3) + "</td><td>" + fix(s.H, 1) + "</td><td>" + fix(s.S, 3) + "</td>");
+
+  // 4. saturation
+  if (T >= gas.Tc) {
+    $("tSat").innerHTML = "";
+    $("satNote").innerHTML = "T > Tc, no saturation pressure.";
+    return;
+  }
+  $("satNote").innerHTML = "";
+  $("tSat").innerHTML =
+    "<tr><th>EOS</th><th>P<sup>sat</sup> (" + pu + ")</th><th>Z<sup>L</sup></th><th>Z<sup>V</sup></th><th>V<sup>L</sup> (cm<sup>3</sup>/mol)</th><th>V<sup>V</sup> (cm<sup>3</sup>/mol)</th><th>&phi;<sup>sat</sup></th><th>&Delta;H<sub>vap</sub> (kJ/mol)</th></tr>" +
+    rows(s => {
+      let p = s.ps;
+      if (!p) return '<td colspan="7">not converged</td>';
+      return "<td>" + dec(pUnit(p.P), 4) + "</td><td>" + fix(p.zl, 5) + "</td><td>" + fix(p.zv, 5) + "</td><td>" + dec(p.VL, 2) + "</td><td>" + dec(p.VV, 2) +
+        "</td><td>" + phiFmt(Math.exp(p.lnphi)) + "</td><td>" + fix(p.dHvap/1000, 3) + "</td>";
+    });
+}
+
+// events
+$("run").onclick = function () {
+  this.blur();
+  calculate();
+  // small feedback so it is clear the values were recalculated
+  let btn = $("run");
+  btn.textContent = "Calculated \u2713";
+  btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "Calculate"; btn.classList.remove("done"); }, 1200);
+};
+$("sp").onchange = function () {
+  fillGas(+$("sp").value);
+  calculate();
+};
+["Tu", "Pu", "mode"].forEach(id => { $(id).onchange = calculate; });
+function selectEOS(k) {
+  $("eos").value = k;
+  document.querySelectorAll("#eosBtns button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k == k));
+  if (data) showResults();
+}
+$("eos").onchange = function () { selectEOS($("eos").value); };
+document.querySelectorAll("#eosBtns button").forEach(b => { b.onclick = () => selectEOS(b.dataset.k); });
+// click a row in any table to show that EOS
+document.querySelector(".outputs").addEventListener("click", e => {
+  let tr = e.target.closest("tr[data-eos]");
+  if (tr) selectEOS(tr.dataset.eos);
+});
+document.querySelectorAll("input:not(.ro)").forEach(el => {
+  el.addEventListener("keydown", e => { if (e.key == "Enter") $("run").click(); });
+  el.addEventListener("change", calculate);
+});
+
+calculate();
+</script>
+</body>
+</html>
