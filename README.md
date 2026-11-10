@@ -6,6 +6,8 @@ Thermodynamics computer project: PVT behaviour, enthalpy, entropy and fugacity o
 
 **Live website:** https://viraj-chauhan.github.io/cubic-eos-calculator/
 
+**Project report:** [report.pdf](report.pdf) ([open in browser](https://viraj-chauhan.github.io/cubic-eos-calculator/report.pdf))
+
 ## What it does
 
 For a selected gas at a given temperature and pressure, the program calculates the following using the van der Waals, Redlich-Kwong, Soave-Redlich-Kwong and Peng-Robinson equations:
@@ -20,7 +22,7 @@ For a selected gas at a given temperature and pressure, the program calculates t
 | File | Description |
 |---|---|
 | `index.html` | The complete program (HTML, CSS and JavaScript in one file) |
-| `report.pdf` | Project report |
+| [`report.pdf`](report.pdf) | Project report (4 pages) |
 
 ## How to run
 
